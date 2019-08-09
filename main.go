@@ -2,14 +2,17 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"path"
+
+	_ "github.com/lib/pq"
+	_ "net/http/pprof"
+
+	"github.com/gin-gonic/gin"
 )
 
 
@@ -26,32 +29,42 @@ func main() {
 
 	r := gin.Default()
 	r.GET("/v2/", func(c *gin.Context) {
-		redirectToDockerhub(c, "/v2/")
+		redirectToRegistry(c, "/v2/", "registry.hub.docker.com") // TODO: how redirect to the right registry with no buildpack info?
 	})
 	r.GET("/v2/:namespace/:repository/*extra", func(c *gin.Context) {
-		// TODO maybe rewrite namespace/repo?
-		namespace := c.Param("namespace")
-		repository := c.Param("repository")
-		extra := c.Param("extra")
-		p := path.Join("/v2", namespace, repository, extra)
-		redirectToDockerhub(c, p)
+		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("repository"))
+		if err != nil {
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error looking up buildpack: %q", err))
+			return
+		}
+
+		redirectToRegistry(c, path.Join("/v2", bp.Ref, c.Param("extra")), bp.Registry)
 	})
 	r.HEAD("/v2/:namespace/:repository/*extra", func(c *gin.Context) {
-		// TODO maybe rewrite namespace/repo?
-		namespace := c.Param("namespace")
-		repository := c.Param("repository")
-		extra := c.Param("extra")
-		p := path.Join("/v2", namespace, repository, extra)
-		redirectToDockerhub(c, p)
+		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("repository"))
+		if err != nil {
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error looking up buildpack: %q", err))
+			return
+		}
+
+		redirectToRegistry(c, path.Join("/v2", bp.Ref, c.Param("extra")), bp.Registry)
 	})
 	r.POST("/buildpacks/*extra", func(c *gin.Context) {
-		if _, err := db.Exec("CREATE TABLE IF NOT EXISTS buildpacks (id varchar, ref varchar, registry varchar)"); err != nil {
+		var json buildpack
+		if err := c.ShouldBindJSON(&json); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if _, err := db.Exec("CREATE TABLE IF NOT EXISTS buildpacks (namespace varchar, id varchar, ref varchar, registry varchar)"); err != nil {
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("Error creating database table: %q", err))
 			return
 		}
 
-		if _, err := db.Exec("INSERT INTO buildpacks VALUES (now())"); err != nil {
+		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES (?, ?, ?, ?)", json.Namespace, json.Id, json.Ref, "registry.hub.docker.com"); err != nil {
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("Error incrementing tick: %q", err))
 			return
@@ -61,11 +74,35 @@ func main() {
 	_ = r.Run(":" + os.Getenv("PORT"))
 }
 
-func redirectToDockerhub(c *gin.Context, repoPath string) {
+type buildpack struct {
+	Namespace string
+	Id string
+	Ref string
+	Registry string
+}
+
+func lookupBuildpack(db *sql.DB, namespace, id string) (buildpack, error) {
+	rows, err := db.Query("SELECT namespace, id, ref, registry FROM buildpacks WHERE namespace = ? AND id = ?", namespace, id)
+	if err != nil {
+		return buildpack{}, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		bp := buildpack{}
+		if err := rows.Scan(&bp.Namespace, &bp.Id, &bp.Ref, &bp.Registry); err != nil {
+			return buildpack{}, err
+		}
+		return bp, nil
+	}
+	return buildpack{}, errors.New("could not find buildpack")
+}
+
+func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 	target := c.Request.URL
 	target.Scheme = "https"
 	target.Path = repoPath
-	target.Host = "registry.hub.docker.com"
+	target.Host = registry
 
 	log.Info(target.String())
 	c.Redirect(http.StatusMovedPermanently, target.String())

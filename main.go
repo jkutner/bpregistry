@@ -68,7 +68,7 @@ func main() {
 			WithField("namespace", json.Namespace).
 			WithField("id", json.Id).
 			WithField("ref", json.Ref).Info("creating")
-		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES (?, ?, ?, ?)", json.Namespace, json.Id, json.Ref, "registry.hub.docker.com"); err != nil {
+		if _, err := db.Exec("INSERT INTO buildpacks VALUES (?, ?, ?, ?)", json.Namespace, json.Id, json.Ref, "registry.hub.docker.com"); err != nil {
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("Error inserting buildpack: %q", err))
 			return

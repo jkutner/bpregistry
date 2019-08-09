@@ -88,7 +88,7 @@ func redirectHandler(db *sql.DB) gin.HandlerFunc {
 }
 
 func lookupBuildpack(db *sql.DB, namespace, id string) (buildpack, error) {
-	rows, err := db.Query("SELECT namespace, id, ref, registry FROM buildpacks WHERE namespace = ? AND id = ?", namespace, id)
+	rows, err := db.Query("SELECT namespace, id, ref, registry FROM buildpacks WHERE namespace = $1 AND id = $2", namespace, id)
 	if err != nil {
 		return buildpack{}, err
 	}

@@ -1,11 +1,11 @@
 package main
 
 import (
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-
-	log "github.com/sirupsen/logrus"
 )
 
 
@@ -15,14 +15,18 @@ func init() {
 }
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		target := r.URL
+	r := gin.Default()
+	r.GET("/v2", func(c *gin.Context) {
+		target := c.Request.URL
 		target.Scheme = "https"
 		target.Host = "registry.hub.docker.com"
-
-		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+		c.Redirect(http.StatusMovedPermanently, target.String())
 	})
-
-	port := os.Getenv("PORT")
-	log.Fatal(http.ListenAndServe(":" + port, nil))
+	r.HEAD("/v2", func(c *gin.Context) {
+		target := c.Request.URL
+		target.Scheme = "https"
+		target.Host = "registry.hub.docker.com"
+		c.Redirect(http.StatusMovedPermanently, target.String())
+	})
+	_ = r.Run(":" + os.Getenv("PORT"))
 }

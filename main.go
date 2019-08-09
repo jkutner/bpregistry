@@ -113,5 +113,13 @@ func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 	target.Host = registry
 
 	log.WithField("target", target.String()).Info("redirect")
+
+	var b []byte
+	if _, err := c.Request.Body.Read(b); err != nil {
+		c.String(http.StatusInternalServerError,
+			fmt.Sprintf("Error inserting buildpack: %q", err))
+		return
+	}
+	log.Debug(string(b))
 	c.Redirect(http.StatusMovedPermanently, target.String())
 }

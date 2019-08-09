@@ -113,14 +113,5 @@ func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 	target.Host = registry
 
 	log.WithField("target", target.String()).Info("redirect")
-
-	var b []byte
-	if _, err := c.Request.Body.Read(b); err != nil {
-		log.Errorf("Error reading request body: %q", err)
-		c.String(http.StatusInternalServerError,
-			fmt.Sprintf("Error reading request body: %q", err))
-		return
-	}
-	log.Debug(string(b))
 	c.Redirect(http.StatusMovedPermanently, target.String())
 }

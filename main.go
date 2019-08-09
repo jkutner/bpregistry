@@ -18,7 +18,7 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		target := r.URL
 		target.Scheme = "https"
-		target.Host = "docker.io"
+		target.Host = "registry.hub.docker.com"
 
 		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
 	})

@@ -31,26 +31,8 @@ func main() {
 	r.GET("/v2/", func(c *gin.Context) {
 		redirectToRegistry(c, "/v2/", "registry.hub.docker.com") // TODO: how redirect to the right registry with no buildpack info?
 	})
-	r.GET("/v2/:namespace/:repository/*extra", func(c *gin.Context) {
-		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("repository"))
-		if err != nil {
-			c.String(http.StatusInternalServerError,
-				fmt.Sprintf("Error looking up buildpack: %q", err))
-			return
-		}
-
-		redirectToRegistry(c, path.Join("/v2", bp.Ref, c.Param("extra")), bp.Registry)
-	})
-	r.HEAD("/v2/:namespace/:repository/*extra", func(c *gin.Context) {
-		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("repository"))
-		if err != nil {
-			c.String(http.StatusInternalServerError,
-				fmt.Sprintf("Error looking up buildpack: %q", err))
-			return
-		}
-
-		redirectToRegistry(c, path.Join("/v2", bp.Ref, c.Param("extra")), bp.Registry)
-	})
+	r.GET("/v2/:namespace/:repository/*extra", redirectHandler(db))
+	r.HEAD("/v2/:namespace/:repository/*extra", redirectHandler(db))
 	r.POST("/buildpacks/*extra", func(c *gin.Context) {
 		var json buildpack
 		if err := c.ShouldBindJSON(&json); err != nil {
@@ -83,6 +65,25 @@ type buildpack struct {
 	Id string
 	Ref string
 	Registry string
+}
+
+func redirectHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("repository"))
+		if err != nil {
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error looking up buildpack: %q", err))
+			return
+		}
+
+		log.
+			WithField("namespace", bp.Namespace).
+			WithField("id", bp.Id).
+			WithField("ref", bp.Ref).
+			WithField("registry", bp.Registry).
+			Info("redirecting")
+		redirectToRegistry(c, path.Join("/v2", bp.Ref, c.Param("extra")), bp.Registry)
+	}
 }
 
 func lookupBuildpack(db *sql.DB, namespace, id string) (buildpack, error) {

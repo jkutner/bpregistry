@@ -19,10 +19,10 @@ func main() {
 	r.GET("/v2/", func(c *gin.Context) {
 		redirectToDockerhub(c)
 	})
-	r.GET("/v2/:namespace/*repo", func(c *gin.Context) {
+	r.GET("/v2/:namespace/:repo/*extra", func(c *gin.Context) {
 		redirectToDockerhub(c)
 	})
-	r.HEAD("/v2/:namespace/*repo", func(c *gin.Context) {
+	r.HEAD("/v2/:namespace/:repo/*extra", func(c *gin.Context) {
 		redirectToDockerhub(c)
 	})
 	_ = r.Run(":" + os.Getenv("PORT"))

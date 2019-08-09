@@ -7,6 +7,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper v0.3.1
 	github.com/docker/docker-credential-helpers v0.6.3 // indirect
 	github.com/gin-gonic/gin v1.4.0
+	github.com/lib/pq v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sirupsen/logrus v1.4.2

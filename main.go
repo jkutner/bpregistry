@@ -71,6 +71,7 @@ func redirectHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("repository"))
 		if err != nil {
+			log.Errorf("Error looking up buildpack: %q", err)
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("Error looking up buildpack: %q", err))
 			return

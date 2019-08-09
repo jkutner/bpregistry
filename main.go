@@ -117,7 +117,7 @@ func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 	var b []byte
 	if _, err := c.Request.Body.Read(b); err != nil {
 		c.String(http.StatusInternalServerError,
-			fmt.Sprintf("Error inserting buildpack: %q", err))
+			fmt.Sprintf("Error reading request body: %q", err))
 		return
 	}
 	log.Debug(string(b))

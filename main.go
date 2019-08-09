@@ -64,9 +64,13 @@ func main() {
 			return
 		}
 
+		log.
+			WithField("namespace", json.Namespace).
+			WithField("id", json.Id).
+			WithField("ref", json.Ref).Info("creating")
 		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES (?, ?, ?, ?)", json.Namespace, json.Id, json.Ref, "registry.hub.docker.com"); err != nil {
 			c.String(http.StatusInternalServerError,
-				fmt.Sprintf("Error incrementing tick: %q", err))
+				fmt.Sprintf("Error inserting buildpack: %q", err))
 			return
 		}
 		c.String(http.StatusOK, fmt.Sprintf("Created"))

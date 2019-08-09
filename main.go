@@ -20,12 +20,14 @@ func main() {
 		target := c.Request.URL
 		target.Scheme = "https"
 		target.Host = "registry.hub.docker.com"
+		log.Info(target.String())
 		c.Redirect(http.StatusMovedPermanently, target.String())
 	})
 	r.HEAD("/v2", func(c *gin.Context) {
 		target := c.Request.URL
 		target.Scheme = "https"
 		target.Host = "registry.hub.docker.com"
+		log.Info(target.String())
 		c.Redirect(http.StatusMovedPermanently, target.String())
 	})
 	_ = r.Run(":" + os.Getenv("PORT"))

@@ -46,6 +46,8 @@ func main() {
 			return
 		}
 
+		_, _ = db.Exec("DELETE FROM buildpacks WHERE namespace = $1 AND id = $2", json.Namespace, json.Id)
+
 		log.
 			WithField("namespace", json.Namespace).
 			WithField("id", json.Id).
@@ -82,7 +84,7 @@ func redirectHandler(db *sql.DB) gin.HandlerFunc {
 			WithField("id", bp.Id).
 			WithField("ref", bp.Ref).
 			WithField("registry", bp.Registry).
-			Info("redirecting")
+			Info("handler")
 		redirectToRegistry(c, path.Join("/v2", bp.Ref, c.Param("extra")), bp.Registry)
 	}
 }
@@ -110,6 +112,6 @@ func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 	target.Path = repoPath
 	target.Host = registry
 
-	log.Info(target.String())
+	log.WithField("target", target.String()).Info("redirect")
 	c.Redirect(http.StatusMovedPermanently, target.String())
 }

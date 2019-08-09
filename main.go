@@ -15,7 +15,7 @@ func init() {
 }
 
 func main() {
-	http.HandleFunc("*", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		target := r.URL
 		target.Scheme = "https"
 		target.Host = "docker.io"

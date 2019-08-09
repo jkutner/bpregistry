@@ -66,5 +66,7 @@ func redirectToDockerhub(c *gin.Context, repoPath string) {
 	target.Scheme = "https"
 	target.Path = repoPath
 	target.Host = "registry.hub.docker.com"
+
+	log.Info(target.String())
 	c.Redirect(http.StatusMovedPermanently, target.String())
 }

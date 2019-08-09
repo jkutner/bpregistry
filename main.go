@@ -28,7 +28,7 @@ func main() {
 	r.GET("/v2/", func(c *gin.Context) {
 		redirectToDockerhub(c, "/v2/")
 	})
-	r.GET("/v2/:namespace/:repo/*extra", func(c *gin.Context) {
+	r.GET("/v2/:namespace/:repository/*extra", func(c *gin.Context) {
 		// TODO maybe rewrite namespace/repo?
 		namespace := c.Param("namespace")
 		repository := c.Param("repository")

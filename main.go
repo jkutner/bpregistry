@@ -24,5 +24,5 @@ func main() {
 	})
 
 	port := os.Getenv("PORT")
-	log.Fatal(http.ListenAndServeTLS(":" + port, "cert.pem", "privkey.pem", nil))
+	log.Fatal(http.ListenAndServe(":" + port, nil))
 }

@@ -116,6 +116,7 @@ func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 
 	var b []byte
 	if _, err := c.Request.Body.Read(b); err != nil {
+		log.Errorf("Error reading request body: %q", err)
 		c.String(http.StatusInternalServerError,
 			fmt.Sprintf("Error reading request body: %q", err))
 		return

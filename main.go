@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const repo = "gcr.io" // "registry.hub.docker.com"
 
 func init() {
 	// Setting default level to debug
@@ -29,7 +30,7 @@ func main() {
 
 	r := gin.Default()
 	r.GET("/v2/", func(c *gin.Context) {
-		redirectToRegistry(c, "/v2/", "registry.hub.docker.com") // TODO: how redirect to the right registry with no buildpack info?
+		redirectToRegistry(c, "/v2/", repo) // TODO: how redirect to the right registry with no buildpack info?
 	})
 	r.GET("/v2/:namespace/:repository/*extra", redirectHandler(db))
 	r.HEAD("/v2/:namespace/:repository/*extra", redirectHandler(db))
@@ -52,7 +53,7 @@ func main() {
 			WithField("namespace", json.Namespace).
 			WithField("id", json.Id).
 			WithField("ref", json.Ref).Info("creating")
-		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES ($1, $2, $3, $4)", json.Namespace, json.Id, json.Ref, "registry.hub.docker.com"); err != nil {
+		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES ($1, $2, $3, $4)", json.Namespace, json.Id, json.Ref, repo); err != nil {
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("Error inserting buildpack: %q", err))
 			return

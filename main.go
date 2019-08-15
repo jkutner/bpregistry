@@ -63,7 +63,7 @@ func main() {
 
 	})
 
-	r.POST("/buildpacks/:namespace/:id/:tag", createManifestHandler(db))
+	r.POST("/buildpacks/:namespace/:id/manifests/:tag", createManifestHandler(db))
 	_ = r.Run(":" + os.Getenv("PORT"))
 }
 
@@ -80,8 +80,9 @@ func manifestHandler(db *sql.DB) gin.HandlerFunc {
 		id := c.Param("id")
 		tag := c.Param("tag")
 
-		rows, err := db.Query("SELECT namespace, id, ref, registry FROM manifests WHERE namespace = $1 AND id = $2 AND tag = $3", namespace, id, tag)
+		rows, err := db.Query("SELECT manifest FROM manifests WHERE namespace = $1 AND id = $2 AND tag = $3", namespace, id, tag)
 		if err != nil {
+			log.Errorf("Error looking up manifest: %q", err)
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("Error looking up manifest: %q", err))
 			return
@@ -91,15 +92,16 @@ func manifestHandler(db *sql.DB) gin.HandlerFunc {
 		for rows.Next() {
 			var manifest string
 			if err := rows.Scan(&manifest); err != nil {
+				log.Errorf("Error reading manifest: %q", err)
 				c.String(http.StatusInternalServerError,
-					fmt.Sprintf("Error looking up buildpack: %q", err))
+					fmt.Sprintf("Error reading manifest: %q", err))
 				return
 			}
 			c.String(http.StatusOK, manifest)
 			return
 		}
 		c.String(http.StatusNotFound,
-			fmt.Sprintf("Error looking up buildpack: not found"))
+			fmt.Sprintf("Could not find manifest"))
 		return
 	}
 }

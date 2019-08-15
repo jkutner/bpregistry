@@ -113,7 +113,7 @@ func manifestHandler(db *sql.DB) gin.HandlerFunc {
 
 func redirectHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.WithField("authentication", c.GetHeader("Authentication")).Info("headers")
+		log.WithField("headers", c.Request.Header).Info("headers")
 
 		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("id"))
 		if err != nil {

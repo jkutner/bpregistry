@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 
 	_ "github.com/lib/pq"
 	_ "net/http/pprof"
@@ -98,7 +99,8 @@ func manifestHandler(db *sql.DB) gin.HandlerFunc {
 					fmt.Sprintf("Error reading manifest: %q", err))
 				return
 			}
-			c.String(http.StatusOK, manifest)
+			reader := strings.NewReader(manifest)
+			c.DataFromReader(http.StatusOK, reader.Size(), "application/vnd.docker.distribution.manifest.v2+json", reader, map[string]string{})
 			return
 		}
 		c.String(http.StatusNotFound,

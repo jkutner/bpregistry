@@ -155,7 +155,7 @@ func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 	target.Host = registry
 
 	log.WithField("target", target.String()).Info("redirect")
-	c.Redirect(http.StatusMovedPermanently, target.String())
+	c.Redirect(http.StatusTemporaryRedirect, target.String())
 }
 
 func createManifestHandler(db *sql.DB) gin.HandlerFunc {

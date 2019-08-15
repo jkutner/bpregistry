@@ -114,7 +114,7 @@ func manifestHandler(db *sql.DB) gin.HandlerFunc {
 }
 
 func proxyHandler(db *sql.DB) gin.HandlerFunc {
-	repoUrl, err := url.Parse(repo)
+	repoUrl, err := url.Parse("https://" + repo)
 	if err != nil {
 		log.Println("Reverse Proxy target url could not be parsed:", err)
 		return nil

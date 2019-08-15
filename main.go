@@ -32,9 +32,10 @@ func main() {
 	r.GET("/v2/", func(c *gin.Context) {
 		redirectToRegistry(c, "/v2/", repo) // TODO: how redirect to the right registry with no buildpack info?
 	})
+	r.GET("/v2/:namespace/:id/manifests/:tag", manifestHandler(db))
 	r.GET("/v2/:namespace/:repository/*extra", redirectHandler(db))
 	r.HEAD("/v2/:namespace/:repository/*extra", redirectHandler(db))
-	r.POST("/buildpacks/*extra", func(c *gin.Context) {
+	r.POST("/buildpacks/", func(c *gin.Context) {
 		var json buildpack
 		if err := c.ShouldBindJSON(&json); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -59,7 +60,10 @@ func main() {
 			return
 		}
 		c.String(http.StatusOK, fmt.Sprintf("Created"))
+
 	})
+
+	r.POST("/buildpacks/:namespace/:id/:tag", createManifestHandler(db))
 	_ = r.Run(":" + os.Getenv("PORT"))
 }
 
@@ -68,6 +72,36 @@ type buildpack struct {
 	Id string
 	Ref string
 	Registry string
+}
+
+func manifestHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		id := c.Param("id")
+		tag := c.Param("tag")
+
+		rows, err := db.Query("SELECT namespace, id, ref, registry FROM manifests WHERE namespace = $1 AND id = $2 AND tag = $3", namespace, id, tag)
+		if err != nil {
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error looking up manifest: %q", err))
+			return
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			var manifest string
+			if err := rows.Scan(&manifest); err != nil {
+				c.String(http.StatusInternalServerError,
+					fmt.Sprintf("Error looking up buildpack: %q", err))
+				return
+			}
+			c.String(http.StatusOK, manifest)
+			return
+		}
+		c.String(http.StatusNotFound,
+			fmt.Sprintf("Error looking up buildpack: not found"))
+		return
+	}
 }
 
 func redirectHandler(db *sql.DB) gin.HandlerFunc {
@@ -115,4 +149,36 @@ func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 
 	log.WithField("target", target.String()).Info("redirect")
 	c.Redirect(http.StatusMovedPermanently, target.String())
+}
+
+func createManifestHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		id := c.Param("id")
+		tag := c.Param("tag")
+
+		if _, err := db.Exec("CREATE TABLE IF NOT EXISTS manifests (namespace varchar, id varchar, tag varchar, manifest text)"); err != nil {
+			log.Errorf("Error creating database table: %q", err)
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error creating database table: %q", err))
+			return
+		}
+
+		_, _ = db.Exec("DELETE FROM manifests WHERE namespace = $1 AND id = $2 AND tag = $3", namespace, id, tag)
+
+		var manifest []byte
+		c.Request.Body.Read(manifest)
+
+		log.
+			WithField("namespace", namespace).
+			WithField("id", id).
+			WithField("tag", tag).Info("inserting")
+		if _, err := db.Exec("INSERT INTO manifests (namespace, id, tag, manifest) VALUES ($1, $2, $3, $4)", namespace, id, tag, string(manifest)); err != nil {
+			log.Errorf("Error inserting manifest into database: %q", err)
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error inserting manifest into database: %q", err))
+			return
+		}
+		return
+	}
 }

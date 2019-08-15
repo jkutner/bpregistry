@@ -35,9 +35,7 @@ func main() {
 	}
 
 	r := gin.Default()
-	r.GET("/v2/", func(c *gin.Context) {
-		redirectToRegistry(c, "/v2/", repo) // TODO: how redirect to the right registry with no buildpack info?
-	})
+	r.GET("/v2/", proxyToRegistry())
 	r.GET("/v2/:namespace/:id/manifests/:tag", manifestHandler(db))
 	r.GET("/v2/:namespace/:id/blobs/*extra", proxyHandler(db))
 	r.HEAD("/v2/:namespace/:id/blobs/*extra", proxyHandler(db))
@@ -110,6 +108,42 @@ func manifestHandler(db *sql.DB) gin.HandlerFunc {
 		c.String(http.StatusNotFound,
 			fmt.Sprintf("Could not find manifest"))
 		return
+	}
+}
+
+type stdoutReponseWriter struct {
+	foo string
+	header http.Header
+}
+
+func (w *stdoutReponseWriter)  Write(bytes []byte) (int, error) {
+	return os.Stdout.Write(bytes)
+}
+
+func (w *stdoutReponseWriter)  WriteHeader(statusCode int) {
+	return
+}
+
+func (w *stdoutReponseWriter)  Header() http.Header {
+	return w.header
+}
+
+func proxyToRegistry() gin.HandlerFunc {
+	repoUrl, err := url.Parse("https://" + repo)
+	if err != nil {
+		log.Println("Reverse Proxy target url could not be parsed:", err)
+		return nil
+	}
+	proxy := httputil.NewSingleHostReverseProxy(repoUrl)
+	return func(c *gin.Context) {
+		r := c.Request
+		r.URL.Scheme = "https"
+		r.URL.Path = "/v2/"
+		r.URL.Host = repo
+		r.Host = repo
+
+		w := &stdoutReponseWriter{}
+		proxy.ServeHTTP(w, c.Request)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -168,15 +169,25 @@ func createManifestHandler(db *sql.DB) gin.HandlerFunc {
 
 		_, _ = db.Exec("DELETE FROM manifests WHERE namespace = $1 AND id = $2 AND tag = $3", namespace, id, tag)
 
-		var manifest []byte
-		c.Request.Body.Read(manifest)
-		log.Debug(string(manifest))
+		// Read the Body content
+		var bodyBytes []byte
+		if c.Request.Body != nil {
+			var err error
+			if bodyBytes, err = ioutil.ReadAll(c.Request.Body); err != nil {
+				log.Errorf("Error reading manifest: %q", err)
+				c.String(http.StatusInternalServerError,
+					fmt.Sprintf("Error reading manifest: %q", err))
+				return
+			}
+		}
+
+		log.Debug(string(bodyBytes))
 
 		log.
 			WithField("namespace", namespace).
 			WithField("id", id).
 			WithField("tag", tag).Info("inserting")
-		if _, err := db.Exec("INSERT INTO manifests (namespace, id, tag, manifest) VALUES ($1, $2, $3, $4)", namespace, id, tag, string(manifest)); err != nil {
+		if _, err := db.Exec("INSERT INTO manifests (namespace, id, tag, manifest) VALUES ($1, $2, $3, $4)", namespace, id, tag, string(bodyBytes)); err != nil {
 			log.Errorf("Error inserting manifest into database: %q", err)
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("Error inserting manifest into database: %q", err))

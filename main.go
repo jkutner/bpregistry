@@ -19,8 +19,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//const repo = "gcr.io"
-const repo = "registry.hub.docker.com"
+const repo = "gcr.io"
+//const repo = "registry.hub.docker.com"
 
 
 func init() {

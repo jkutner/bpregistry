@@ -17,7 +17,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const repo = "registry.hub.docker.com" // "gcr.io"
+const repo = "gcr.io"
+//const repo = "registry.hub.docker.com"
+
 
 func init() {
 	// Setting default level to debug

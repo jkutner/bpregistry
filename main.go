@@ -170,6 +170,7 @@ func createManifestHandler(db *sql.DB) gin.HandlerFunc {
 
 		var manifest []byte
 		c.Request.Body.Read(manifest)
+		log.Debug(string(manifest))
 
 		log.
 			WithField("namespace", namespace).

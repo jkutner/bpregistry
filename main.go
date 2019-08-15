@@ -33,8 +33,8 @@ func main() {
 		redirectToRegistry(c, "/v2/", repo) // TODO: how redirect to the right registry with no buildpack info?
 	})
 	r.GET("/v2/:namespace/:id/manifests/:tag", manifestHandler(db))
-	r.GET("/v2/:namespace/:id/*extra", redirectHandler(db))
-	r.HEAD("/v2/:namespace/:id/*extra", redirectHandler(db))
+	r.GET("/v2/:namespace/:id/blobs/*extra", redirectHandler(db))
+	r.HEAD("/v2/:namespace/:id/blobs/*extra", redirectHandler(db))
 	r.POST("/buildpacks/", func(c *gin.Context) {
 		var json buildpack
 		if err := c.ShouldBindJSON(&json); err != nil {

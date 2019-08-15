@@ -127,7 +127,7 @@ func redirectHandler(db *sql.DB) gin.HandlerFunc {
 			WithField("ref", bp.Ref).
 			WithField("registry", bp.Registry).
 			Info("handler")
-		redirectToRegistry(c, path.Join("/v2", bp.Ref, c.Param("extra")), bp.Registry)
+		redirectToRegistry(c, path.Join("/v2", "blobs", bp.Ref, c.Param("extra")), bp.Registry)
 	}
 }
 

@@ -19,7 +19,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const repo = "gcr.io"
+//const repo = "docker.pkg.github.com"
+//const repo = "gcr.io"
 //const repo = "registry.hub.docker.com"
 
 
@@ -58,7 +59,7 @@ func main() {
 			WithField("namespace", json.Namespace).
 			WithField("id", json.Id).
 			WithField("ref", json.Ref).Info("creating")
-		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES ($1, $2, $3, $4)", json.Namespace, json.Id, json.Ref, repo); err != nil {
+		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES ($1, $2, $3, $4)", json.Namespace, json.Id, json.Ref, json.Registry); err != nil {
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("Error inserting buildpack: %q", err))
 			return
@@ -112,12 +113,6 @@ func manifestHandler(db *sql.DB) gin.HandlerFunc {
 }
 
 func proxyHandler(db *sql.DB) gin.HandlerFunc {
-	repoUrl, err := url.Parse("https://" + repo)
-	if err != nil {
-		log.Println("Reverse Proxy target url could not be parsed:", err)
-		return nil
-	}
-	proxy := httputil.NewSingleHostReverseProxy(repoUrl)
 	return func(c *gin.Context) {
 		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("id"))
 		if err != nil {
@@ -130,8 +125,11 @@ func proxyHandler(db *sql.DB) gin.HandlerFunc {
 		r := c.Request
 		r.URL.Scheme = "https"
 		r.URL.Path = path.Join("/v2", bp.Ref, "blobs", c.Param("extra"))
-		r.URL.Host = repo
-		r.Host = repo
+		r.URL.Host = bp.Registry
+		r.Host = bp.Registry
+
+		repoUrl, err := url.Parse("https://" + bp.Registry)
+		proxy := httputil.NewSingleHostReverseProxy(repoUrl)
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }

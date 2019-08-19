@@ -7,6 +7,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -36,8 +38,8 @@ func main() {
 	r := gin.Default()
 	r.GET("/v2/", func(c *gin.Context) {c.JSON(200, gin.H{})})
 	r.GET("/v2/:namespace/:id/manifests/:tag", manifestHandler(db))
-	r.GET("/v2/:namespace/:id/blobs/*extra", redirectHandler(db))
-	r.HEAD("/v2/:namespace/:id/blobs/*extra", redirectHandler(db))
+	r.GET("/v2/:namespace/:id/blobs/*extra", proxyHandler(db))
+	r.HEAD("/v2/:namespace/:id/blobs/*extra", proxyHandler(db))
 	r.POST("/buildpacks/", func(c *gin.Context) {
 		var json buildpack
 		if err := c.ShouldBindJSON(&json); err != nil {
@@ -110,34 +112,8 @@ func manifestHandler(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-//func proxyHandler(db *sql.DB) gin.HandlerFunc {
-//	return func(c *gin.Context) {
-//		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("id"))
-//		if err != nil {
-//			log.Errorf("Error looking up buildpack: %q", err)
-//			c.String(http.StatusInternalServerError,
-//				fmt.Sprintf("Error looking up buildpack: %q", err))
-//			return
-//		}
-//
-//		r := c.Request
-//		r.URL.Scheme = "https"
-//		r.URL.Path = path.Join("/v2", bp.Ref, "blobs", c.Param("extra"))
-//		r.URL.Host = bp.Registry
-//		r.Host = bp.Registry
-//
-//		repoUrl, err := url.Parse("https://" + bp.Registry)
-//		proxy := httputil.NewSingleHostReverseProxy(repoUrl)
-//		proxy.ServeHTTP(c.Writer, c.Request)
-//	}
-//}
-
-func redirectHandler(db *sql.DB) gin.HandlerFunc {
+func proxyHandler(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.
-			WithField("headers", c.Request.Header).
-			Info("headers")
-
 		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("id"))
 		if err != nil {
 			log.Errorf("Error looking up buildpack: %q", err)
@@ -146,15 +122,41 @@ func redirectHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		log.
-			WithField("namespace", bp.Namespace).
-			WithField("id", bp.Id).
-			WithField("ref", bp.Ref).
-			WithField("registry", bp.Registry).
-			Info("handler")
-		redirectToRegistry(c, path.Join("/v2", bp.Ref, "blobs", c.Param("extra")), bp.Registry)
+		r := c.Request
+		r.URL.Scheme = "https"
+		r.URL.Path = path.Join("/v2", bp.Ref, "blobs", c.Param("extra"))
+		r.URL.Host = bp.Registry
+		r.Host = bp.Registry
+
+		repoUrl, err := url.Parse("https://" + bp.Registry)
+		proxy := httputil.NewSingleHostReverseProxy(repoUrl)
+		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }
+
+//func redirectHandler(db *sql.DB) gin.HandlerFunc {
+//	return func(c *gin.Context) {
+//		log.
+//			WithField("headers", c.Request.Header).
+//			Info("headers")
+//
+//		bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("id"))
+//		if err != nil {
+//			log.Errorf("Error looking up buildpack: %q", err)
+//			c.String(http.StatusInternalServerError,
+//				fmt.Sprintf("Error looking up buildpack: %q", err))
+//			return
+//		}
+//
+//		log.
+//			WithField("namespace", bp.Namespace).
+//			WithField("id", bp.Id).
+//			WithField("ref", bp.Ref).
+//			WithField("registry", bp.Registry).
+//			Info("handler")
+//		redirectToRegistry(c, path.Join("/v2", bp.Ref, "blobs", c.Param("extra")), bp.Registry)
+//	}
+//}
 
 func lookupBuildpack(db *sql.DB, namespace, id string) (buildpack, error) {
 	rows, err := db.Query("SELECT namespace, id, ref, registry FROM buildpacks WHERE namespace = $1 AND id = $2", namespace, id)

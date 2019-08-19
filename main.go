@@ -122,6 +122,8 @@ func proxyHandler(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		log.Debug(c.Request.Header)
+
 		r := c.Request
 		r.URL.Scheme = "https"
 		r.URL.Path = path.Join("/v2", bp.Ref, "blobs", c.Param("extra"))

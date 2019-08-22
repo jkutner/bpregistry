@@ -36,90 +36,12 @@ func main() {
 	}
 
 	r := gin.Default()
-	// TODO add response header "Www-Authenticate: Bearer realm="$HOST/token"
-	// https://docs.docker.com/registry/spec/auth/token/
-	r.GET("/v2/", func(c *gin.Context) {
-
-		reader := strings.NewReader("{}")
-		contentLength := reader.Size()
-		extraHeaders := map[string]string{
-			"Docker-Distribution-Api-Version": "registry/2.0",
-			"Www-Authenticate":	`Bearer realm="https://`+ c.Request.Host + `/token",service="registry.docker.io"`,
-		}
-
-		c.DataFromReader(http.StatusUnauthorized, contentLength, "application/json; charset=utf-8", reader, extraHeaders)
-	})
-
-	// TODO change the scope, and redirect to auth.docker.io
-	r.GET("/token", func(c *gin.Context) {
-
-		//scope := c.Request.URL.Query().Get("scope")
-		//
-		//bp, err := lookupBuildpack(db, scope.repo, scope.image)
-		//if err != nil {
-		//	log.Errorf("Error looking up buildpack: %q", err)
-		//	c.String(http.StatusInternalServerError,
-		//		fmt.Sprintf("Error looking up buildpack: %q", err))
-		//	return
-		//}
-
-		//target := c.Request.URL
-		//target.Scheme = "https"
-		//target.Host = "auth.docker.io"
-		//target.Query().Set("scope", "repository:jkutner/busybox:pull")
-		//target.Query().Set("service", "registry.docker.io" )
-
-		if target, err := url.Parse("https://auth.docker.io/token?scope=repository%3Ajkutner%2Fbusybox%3Apull&service=registry.docker.io"); err == nil {
-			log.WithField("target", target.String()).Info("redirect")
-			c.Redirect(http.StatusTemporaryRedirect, target.String())
-			return
-		}
-		c.JSON(http.StatusInternalServerError, "{}")
-
-		r := c.Request
-		r.URL.Scheme = "https"
-		r.URL.Path = "token"
-		r.URL.Host = "auth.docker.io"
-		r.URL.Query().Set("scope", "repository:jkutner/busybox:pull")
-		r.URL.Query().Set("service", "registry.docker.io" )
-		r.Host = "auth.docker.io"
-
-		repoUrl, _ := url.Parse("https://auth.docker.io")
-		proxy := httputil.NewSingleHostReverseProxy(repoUrl)
-		proxy.ServeHTTP(c.Writer, c.Request)
-	})
-
+	r.GET("/v2/", failAuth())
+	r.GET("/token", redirectToken(db))
 	r.GET("/v2/:namespace/:id/manifests/:tag", manifestHandler(db))
 	r.GET("/v2/:namespace/:id/blobs/*extra", proxyHandler(db))
 	r.HEAD("/v2/:namespace/:id/blobs/*extra", proxyHandler(db))
-	r.POST("/buildpacks/", func(c *gin.Context) {
-		var json buildpack
-		if err := c.ShouldBindJSON(&json); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		if _, err := db.Exec("CREATE TABLE IF NOT EXISTS buildpacks (namespace varchar, id varchar, ref varchar, registry varchar)"); err != nil {
-			c.String(http.StatusInternalServerError,
-				fmt.Sprintf("Error creating database table: %q", err))
-			return
-		}
-
-		_, _ = db.Exec("DELETE FROM buildpacks WHERE namespace = $1 AND id = $2", json.Namespace, json.Id)
-
-		log.
-			WithField("namespace", json.Namespace).
-			WithField("id", json.Id).
-			WithField("ref", json.Ref).Info("creating")
-		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES ($1, $2, $3, $4)", json.Namespace, json.Id, json.Ref, json.Registry); err != nil {
-			c.String(http.StatusInternalServerError,
-				fmt.Sprintf("Error inserting buildpack: %q", err))
-			return
-		}
-		c.String(http.StatusOK, fmt.Sprintf("Created"))
-
-	})
-
+	r.POST("/buildpacks/", createBuildpackHandler(db))
 	r.POST("/buildpacks/:namespace/:id/manifests/:tag", createManifestHandler(db))
 	_ = r.Run(":" + os.Getenv("PORT"))
 }
@@ -129,6 +51,52 @@ type buildpack struct {
 	Id string
 	Ref string
 	Registry string
+}
+
+func failAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// https://docs.docker.com/registry/spec/auth/token/
+		reader := strings.NewReader("{}")
+		contentLength := reader.Size()
+		extraHeaders := map[string]string{
+			"Docker-Distribution-Api-Version": "registry/2.0",
+			"Www-Authenticate":	`Bearer realm="https://`+ c.Request.Host + `/token",service="registry.docker.io"`,
+		}
+
+		c.DataFromReader(http.StatusUnauthorized, contentLength, "application/json; charset=utf-8", reader, extraHeaders)
+	}
+}
+
+func redirectToken(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		scope := c.Request.URL.Query().Get("scope")
+		scopeParts := strings.Split(scope, ":")
+		ref := scopeParts[1]
+		refParts := strings.Split(ref, "/")
+		namespace := refParts[0]
+		id := refParts[1]
+
+
+		bp, err := lookupBuildpack(db, namespace, id)
+		if err != nil {
+			log.Errorf("Error looking up buildpack: %q", err)
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error looking up buildpack: %q", err))
+			return
+		}
+
+		if bp.Registry != "registry.docker.io" {
+			if target, err := url.Parse("https://auth.docker.io/token?scope=repository%3A" + bp.Namespace + "%2F" + bp.Id + "%3Apull&service=registry.docker.io"); err == nil {
+				log.WithField("target", target.String()).Info("redirect")
+				c.Redirect(http.StatusTemporaryRedirect, target.String())
+				return
+			}
+			c.JSON(http.StatusInternalServerError, "{}")
+		} else {
+			// TODO support other docker registries as backends
+			c.JSON(501, "{}")
+		}
+	}
 }
 
 func manifestHandler(db *sql.DB) gin.HandlerFunc {
@@ -237,6 +205,35 @@ func redirectToRegistry(c *gin.Context, repoPath, registry string) {
 
 	log.WithField("target", target.String()).Info("redirect")
 	c.Redirect(http.StatusTemporaryRedirect, target.String())
+}
+
+func createBuildpackHandler(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var json buildpack
+		if err := c.ShouldBindJSON(&json); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if _, err := db.Exec("CREATE TABLE IF NOT EXISTS buildpacks (namespace varchar, id varchar, ref varchar, registry varchar)"); err != nil {
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error creating database table: %q", err))
+			return
+		}
+
+		_, _ = db.Exec("DELETE FROM buildpacks WHERE namespace = $1 AND id = $2", json.Namespace, json.Id)
+
+		log.
+			WithField("namespace", json.Namespace).
+			WithField("id", json.Id).
+			WithField("ref", json.Ref).Info("creating")
+		if _, err := db.Exec("INSERT INTO buildpacks (namespace, id, ref, registry) VALUES ($1, $2, $3, $4)", json.Namespace, json.Id, json.Ref, json.Registry); err != nil {
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("Error inserting buildpack: %q", err))
+			return
+		}
+		c.String(http.StatusOK, fmt.Sprintf("Created"))
+	}
 }
 
 func createManifestHandler(db *sql.DB) gin.HandlerFunc {

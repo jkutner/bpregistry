@@ -34,7 +34,42 @@ func main() {
 	}
 
 	r := gin.Default()
-	r.GET("/v2/", func(c *gin.Context) {c.JSON(200, gin.H{})})
+	// TODO add response header "Www-Authenticate: Bearer realm="$HOST/token"
+	// https://docs.docker.com/registry/spec/auth/token/
+	r.GET("/v2/", func(c *gin.Context) {
+
+		reader := strings.NewReader("{}")
+		contentLength := reader.Size()
+		extraHeaders := map[string]string{
+			"Docker-Distribution-Api-Version": "registry/2.0",
+			"Www-Authenticate":	`Bearer realm="https://`+ c.Request.Host + `/token",service="registry.docker.io"`,
+		}
+
+		c.DataFromReader(http.StatusOK, contentLength, "application/json; charset=utf-8", reader, extraHeaders)
+	})
+
+	// TODO change the scope, and redirect to auth.docker.io
+	r.GET("/token", func(c *gin.Context) {
+
+		//scope := c.Request.URL.Query().Get("scope")
+		//
+		//bp, err := lookupBuildpack(db, c.Param("namespace"), c.Param("id"))
+		//if err != nil {
+		//	log.Errorf("Error looking up buildpack: %q", err)
+		//	c.String(http.StatusInternalServerError,
+		//		fmt.Sprintf("Error looking up buildpack: %q", err))
+		//	return
+		//}
+
+		target := c.Request.URL
+		target.Scheme = "https"
+		target.Query().Set("scope", "repository/jkutner/busybox:pull")
+		target.Query().Set("service", "registry.docker.io" )
+
+		log.WithField("target", target.String()).Info("redirect")
+		c.Redirect(http.StatusTemporaryRedirect, target.String())
+	})
+
 	r.GET("/v2/:namespace/:id/manifests/:tag", manifestHandler(db))
 	r.GET("/v2/:namespace/:id/blobs/*extra", redirectHandler(db))
 	r.HEAD("/v2/:namespace/:id/blobs/*extra", redirectHandler(db))

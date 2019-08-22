@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -61,14 +62,18 @@ func main() {
 		//	return
 		//}
 
-		target := c.Request.URL
-		target.Scheme = "https"
-		target.Host = "auth.docker.io"
-		target.Query().Set("scope", "repository/jkutner/busybox:pull")
-		target.Query().Set("service", "registry.docker.io" )
+		//target := c.Request.URL
+		//target.Scheme = "https"
+		//target.Host = "auth.docker.io"
+		//target.Query().Set("scope", "repository:jkutner/busybox:pull")
+		//target.Query().Set("service", "registry.docker.io" )
 
-		log.WithField("target", target.String()).Info("redirect")
-		c.Redirect(http.StatusTemporaryRedirect, target.String())
+		if target, err := url.Parse("https://auth.docker.io/token?scope=repository%3Ajkutner%2Fbusybox%3Apull&service=registry.docker.io"); err == nil {
+			log.WithField("target", target.String()).Info("redirect")
+			c.Redirect(http.StatusTemporaryRedirect, target.String())
+			return
+		}
+		c.JSON(http.StatusInternalServerError, "{}")
 	})
 
 	r.GET("/v2/:namespace/:id/manifests/:tag", manifestHandler(db))

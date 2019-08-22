@@ -45,7 +45,7 @@ func main() {
 			"Www-Authenticate":	`Bearer realm="https://`+ c.Request.Host + `/token",service="registry.docker.io"`,
 		}
 
-		c.DataFromReader(http.StatusOK, contentLength, "application/json; charset=utf-8", reader, extraHeaders)
+		c.DataFromReader(http.StatusUnauthorized, contentLength, "application/json; charset=utf-8", reader, extraHeaders)
 	})
 
 	// TODO change the scope, and redirect to auth.docker.io

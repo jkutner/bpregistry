@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path"
@@ -74,6 +75,18 @@ func main() {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, "{}")
+
+		r := c.Request
+		r.URL.Scheme = "https"
+		r.URL.Path = "token"
+		r.URL.Host = "auth.docker.io"
+		r.URL.Query().Set("scope", "repository:jkutner/busybox:pull")
+		r.URL.Query().Set("service", "registry.docker.io" )
+		r.Host = "auth.docker.io"
+
+		repoUrl, _ := url.Parse("https://auth.docker.io")
+		proxy := httputil.NewSingleHostReverseProxy(repoUrl)
+		proxy.ServeHTTP(c.Writer, c.Request)
 	})
 
 	r.GET("/v2/:namespace/:id/manifests/:tag", manifestHandler(db))

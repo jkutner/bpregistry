@@ -63,6 +63,7 @@ func main() {
 
 		target := c.Request.URL
 		target.Scheme = "https"
+		target.Host = "auth.docker.io"
 		target.Query().Set("scope", "repository/jkutner/busybox:pull")
 		target.Query().Set("service", "registry.docker.io" )
 

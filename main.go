@@ -85,7 +85,7 @@ func redirectToken(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		if bp.Registry != "registry.docker.io" {
+		if bp.Registry == "registry.docker.io" {
 			if target, err := url.Parse("https://auth.docker.io/token?scope=repository%3A" + bp.Namespace + "%2F" + bp.Id + "%3Apull&service=registry.docker.io"); err == nil {
 				log.WithField("target", target.String()).Info("redirect")
 				c.Redirect(http.StatusTemporaryRedirect, target.String())

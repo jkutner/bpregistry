@@ -17,7 +17,7 @@ Push to Docker Hub (the only backend supported right now), and then publish the 
 ```sh-session
 $ docker push johndoe/some-cnb
 $ curl -d '{"namespace":"me","id":"node","ref":"johndoe/some-cnb", "registry":"registry.docker.io"}' myapp.herokuapp.com/buildpacks/
-$ curl -d "$(docker manifest inspect example.com/johndoe/some-cnb)" myapp.herokuapp.com/buildpacks/me/node/latest
+$ curl -d "$(docker manifest inspect example.com/johndoe/some-cnb)" myapp.herokuapp.com/buildpacks/me/node/manifests/latest
 ```
 
 Pull the buildpack:

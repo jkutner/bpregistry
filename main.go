@@ -68,7 +68,7 @@ func main() {
 		//target.Query().Set("scope", "repository:jkutner/busybox:pull")
 		//target.Query().Set("service", "registry.docker.io" )
 
-		if target, err := url.Parse("https://auth.docker.io/token?scope=repository%3Ajkutner%2Fbusybox%3Apull&service=registry.docker.io"); err == nil {
+		if target, err := url.Parse("https://auth.docker.io/token?scope=repository%3Ajkutner%2Fbusybox%3Apull&service=" + c.Request.Host); err == nil {
 			log.WithField("target", target.String()).Info("redirect")
 			c.Redirect(http.StatusTemporaryRedirect, target.String())
 			return
